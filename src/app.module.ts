@@ -1,18 +1,21 @@
 import { Module } from '@nestjs/common';
+import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { ArticleModule } from './article/article.module';
 import { AuthModule } from './auth/auth.module';
-import { MongooseModule } from '@nestjs/mongoose';
-import { NewsModule } from './news/news.module';
-import { LikeModule } from './like/like.module';
+import { ConfigModule } from '@nestjs/config';
 import { CommentModule } from './comment/comment.module';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      envFilePath: '.env',
+      isGlobal: true,
+    }),
+    MongooseModule.forRoot(process.env.DB_URI),
     AuthModule,
-    MongooseModule.forRoot("mongodb+srv://finalhackathon:12345@cluster0.8ymieza.mongodb.net/?retryWrites=true&w=majority"),
-    NewsModule,
-    LikeModule,
+    ArticleModule,
     CommentModule,
   ],
   controllers: [AppController],

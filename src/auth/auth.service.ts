@@ -1,10 +1,16 @@
-import { Injectable } from '@nestjs/common';
-import { User } from './schema/auth.schema';
+import {
+  ConflictException,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
+import { User } from './schemas/user.schema';
 import { Model } from 'mongoose';
+
+import * as bcrypt from 'bcryptjs';
 import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcrypt';
 import { SignUpDto } from './dto/signup.dto';
+import { LoginDto } from './dto/login.dto';
 
 @Injectable()
 export class AuthService {
@@ -14,35 +20,60 @@ export class AuthService {
     private jwtService: JwtService,
   ) {}
 
-  // service to find user
-  async findUserByEmail(email: string) {
+  //Sign up
+  async signUp(SignUpDto: SignUpDto): Promise<{ token: string }> {
+    const { name, email, password } = SignUpDto;
+    const existingUser = await this.userModel.findOne({ email });
+
+    if (existingUser) {
+      throw new ConflictException('User with this email already exists');
+    }
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const user = await this.userModel.create({
+      name,
+      email,
+      password: hashedPassword,
+    });
+    const token = this.jwtService.sign({ id: user._id });
+    return { token };
+  }
+
+  //Login
+  async login(LogInDto: LoginDto): Promise<{ user: User; token: string }> {
+    const { email, password } = LogInDto;
     const user = await this.userModel.findOne({ email });
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid user');
+    }
+
+    const isPasswordMatched = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordMatched) {
+      throw new UnauthorizedException('Invalid password');
+    }
+
+    const token = this.jwtService.sign({ id: user._id });
+    return { user, token };
+  }
+
+  //Getting all users
+  async findAll(): Promise<User[]> {
+    const user = await this.userModel.find();
     return user;
   }
-  // checks password
-  async matchPassword(password: string, hash: string) {
-    const passwordMatched = await bcrypt.compare(password, hash);
-    if (passwordMatched) {
-      return true;
-    }
-    return false;
+
+  //Get a single user
+  async findById(id: string): Promise<User | null> {
+    return this.userModel.findById(id).exec();
   }
-  // assign token
-  assignToken(id: string) {
-    return { token: this.jwtService.sign({ id }) };
+
+  //Delete user
+  async deleteById(id: String): Promise<User> {
+    return await this.userModel.findByIdAndDelete(id);
   }
-  // hash password
-  async bcryptPassword(password: string) {
-    return await bcrypt.hash(password, 10);
-  }
-  // creating new user
-  async createUser(signupDto: SignUpDto, password: any) {
-    const { email, username } = signupDto;
-    const newUser = await this.userModel.create({
-      email,
-      username,
-      password,
-    });
-    return newUser;
+
+  async logout(token: string): Promise<void> {
+    return;
   }
 }

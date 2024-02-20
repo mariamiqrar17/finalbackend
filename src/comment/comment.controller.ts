@@ -1,34 +1,51 @@
-import { Controller, Get, Post, Body, Patch, Param, Delete } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Post,
+  Req,
+  Param,
+  UseGuards,
+  Get,
+} from '@nestjs/common';
 import { CommentService } from './comment.service';
-import { CreateCommentDto } from './dto/create-comment.dto';
-import { UpdateCommentDto } from './dto/update-comment.dto';
+import { AuthGuard } from '@nestjs/passport';
+import { CreateCommentDto } from './dto/createcoment.dto';
+import { ApiBody, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 
-@Controller('comment')
+@ApiTags('Comments')
+@Controller('comments')
 export class CommentController {
   constructor(private readonly commentService: CommentService) {}
 
-  @Post()
-  create(@Body() createCommentDto: CreateCommentDto) {
-    return this.commentService.create(createCommentDto);
+  // Create a new comment
+  @Post(':articleId')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiOperation({
+    summary: 'Create a new comment',
+    description: 'Create a new comment for a specific article',
+  })
+  @ApiBody({ type: CreateCommentDto })
+  async createComment(
+    @Req() req: any,
+    @Body() createCommentDto: CreateCommentDto,
+    @Param('articleId') articleId: string,
+  ) {
+    const userId = req.user.id;
+    console.log(userId);
+    const commentData = { ...createCommentDto, userId, articleId };
+    return this.commentService.create(commentData);
   }
 
-  @Get()
-  findAll() {
-    return this.commentService.findAll();
-  }
-
-  @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.commentService.findOne(+id);
-  }
-
-  @Patch(':id')
-  update(@Param('id') id: string, @Body() updateCommentDto: UpdateCommentDto) {
-    return this.commentService.update(+id, updateCommentDto);
-  }
-
-  @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.commentService.remove(+id);
+  @Get('article/:articleId')
+  @ApiOperation({
+    summary: 'Get comments by article ID',
+    description: 'Retrieve comments for a specific article by its ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Comments found',
+  })
+  async getCommentsByArticleId(@Param('articleId') articleId: string) {
+    return this.commentService.findCommentsByArticleId(articleId);
   }
 }
